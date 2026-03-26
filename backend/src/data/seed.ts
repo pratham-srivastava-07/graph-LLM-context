@@ -1,8 +1,5 @@
 import { getDb, createSchema } from '../services/db';
-import {
-  customers, addresses, products, orders,
-  orderItems, deliveries, invoices, payments
-} from './sampleData';
+import { loadSAPData } from './sapDataLoader';
 import fs from 'fs';
 import path from 'path';
 
@@ -16,7 +13,10 @@ function seed(): void {
   createSchema();
   const db = getDb();
 
-  console.log('🌱 Seeding database...');
+  console.log('🌱 Seeding database with SAP O2C dataset...');
+
+  // Temporarily disable foreign keys for seeding
+  db.pragma('foreign_keys = OFF');
 
   // Clear existing data
   db.exec(`
@@ -29,6 +29,12 @@ function seed(): void {
     DELETE FROM addresses;
     DELETE FROM customers;
   `);
+
+  // Load SAP data
+  const {
+    customers, addresses, products, orders,
+    orderItems, deliveries, invoices, payments
+  } = loadSAPData();
 
   const insertCustomer = db.prepare(`INSERT INTO customers VALUES (@id,@name,@email,@phone,@segment,@region,@created_at)`);
   const insertAddress = db.prepare(`INSERT INTO addresses VALUES (@id,@street,@city,@state,@country,@postal_code,@type)`);
@@ -51,6 +57,9 @@ function seed(): void {
   });
 
   seedAll();
+
+  // Re-enable foreign keys after seeding
+  db.pragma('foreign_keys = ON');
 
   console.log(`✅ Seeded:
     - ${customers.length} customers

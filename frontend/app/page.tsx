@@ -20,9 +20,51 @@ export default function Home() {
   const [filterType, setFilterType] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [mounted, setMounted] = useState(false);
+  const [chatWidth, setChatWidth] = useState(380);
+  const [isResizing, setIsResizing] = useState(false);
   const resetRef = useRef<(() => void) | null>(null);
 
+  // Handle resizing
+  const startResizing = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsResizing(true);
+  }, []);
+
+  const stopResizing = useCallback(() => {
+    setIsResizing(false);
+  }, []);
+
+  const resize = useCallback((e: MouseEvent) => {
+    if (isResizing) {
+      const newWidth = window.innerWidth - e.clientX;
+      if (newWidth > 280 && newWidth < 800) {
+        setChatWidth(newWidth);
+      }
+    }
+  }, [isResizing]);
+
   useEffect(() => {
+    if (isResizing) {
+      window.addEventListener('mousemove', resize);
+      window.addEventListener('mouseup', stopResizing);
+    } else {
+      window.removeEventListener('mousemove', resize);
+      window.removeEventListener('mouseup', stopResizing);
+    }
+    return () => {
+      window.removeEventListener('mousemove', resize);
+      window.removeEventListener('mouseup', stopResizing);
+    };
+  }, [isResizing, resize, stopResizing]);
+
+  // Prevent hydration mismatch
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (!mounted) return;
     Promise.all([fetchGraph(), fetchGraphStats()])
       .then(([graph, s]) => {
         setGraphData(graph);
@@ -33,7 +75,7 @@ export default function Home() {
         setError((err as Error).message);
         setLoading(false);
       });
-  }, []);
+  }, [mounted]);
 
   const handleNodeClick = useCallback((node: GraphNode) => {
     setSelectedNode(prev => prev?.id === node.id ? null : node);
@@ -61,13 +103,7 @@ export default function Home() {
 
   return (
     <>
-      <Head>
-        <title>SAP O2C Graph Explorer</title>
-        <meta name="description" content="SAP Order-to-Cash Graph Query System" />
-        <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⬡</text></svg>" />
-      </Head>
-
-      <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden', margin: 0, padding: 0, userSelect: isResizing ? 'none' : 'auto' }}>
         {/* Top bar */}
         <Toolbar
           stats={stats}
@@ -77,7 +113,7 @@ export default function Home() {
           onClearHighlights={handleClearHighlights}
         />
 
-        <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
+        <div style={{ flex: 1, display: 'flex', overflow: 'hidden', margin: 0, padding: 0 }}>
           {/* Left sidebar */}
           <Sidebar
             stats={stats}
@@ -88,7 +124,13 @@ export default function Home() {
           />
 
           {/* Main graph area */}
-          <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
+          <div style={{ 
+            flex: 1, 
+            position: 'relative', 
+            overflow: 'hidden',
+            margin: 0,
+            padding: 0
+          }}>
             {loading && (
               <div style={{
                 position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column',
@@ -145,8 +187,29 @@ export default function Home() {
             )}
           </div>
 
+          {/* Resize handle */}
+          <div
+            onMouseDown={startResizing}
+            style={{
+              width: '8px',
+              marginLeft: '-4px',
+              marginRight: '-4px',
+              cursor: 'col-resize',
+              background: isResizing ? 'var(--accent-blue)' : 'transparent',
+              transition: 'background 0.2s',
+              zIndex: 30,
+              position: 'relative',
+              display: 'flex',
+              justifyContent: 'center'
+            }}
+            onMouseEnter={e => !isResizing && (e.currentTarget.style.background = 'rgba(56, 139, 253, 0.15)')}
+            onMouseLeave={e => !isResizing && (e.currentTarget.style.background = 'transparent')}
+          >
+            <div style={{ width: '1px', height: '100%', background: 'var(--border)' }} />
+          </div>
+
           {/* Right chat panel */}
-          <ChatPanel onQueryResult={handleQueryResult} />
+          <ChatPanel width={chatWidth} onQueryResult={handleQueryResult} />
         </div>
       </div>
     </>

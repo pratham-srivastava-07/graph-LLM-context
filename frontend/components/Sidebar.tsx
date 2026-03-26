@@ -1,8 +1,11 @@
 'use client';
 
 import React from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { X, Network, Filter } from 'lucide-react';
 import { GraphStats, GraphNode } from '../lib/types';
 import { NODE_COLORS, NODE_ICONS, STATUS_COLORS } from '../lib/constant';
+import { Badge } from './ui/badge';
 
 interface SidebarProps {
   stats: GraphStats | null;
@@ -18,7 +21,7 @@ function formatValue(key: string, val: unknown): React.ReactNode {
   const statusLike = ['status', 'priority', 'segment', 'type', 'method'];
   if (statusLike.some(k => key.toLowerCase().includes(k)) && typeof val === 'string') {
     const safe = val.replace(/\s+/g, '.');
-    return <span className={`badge badge-${safe}`}>{val}</span>;
+    return <Badge variant="outline" className={`badge-${safe}`}>{val}</Badge>;
   }
 
   if (typeof val === 'number') {
@@ -40,24 +43,26 @@ const SKIP_KEYS = ['id', 'order_id', 'customer_id', 'product_id', 'invoice_id', 
 export default function Sidebar({ stats, selectedNode, onClearSelection, activeFilter, onFilterByType }: SidebarProps) {
   return (
     <aside style={{
-      width: 280,
+      width: 220,
       background: 'var(--bg-surface)',
       borderRight: '1px solid var(--border)',
       display: 'flex',
       flexDirection: 'column',
       overflow: 'hidden',
       flexShrink: 0,
+      margin: 0,
+      padding: 0
     }}>
       {/* Logo */}
-      <div style={{ padding: '20px 20px 16px', borderBottom: '1px solid var(--border)' }}>
+      <div style={{ padding: '16px 16px 12px', borderBottom: '1px solid var(--border)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <div style={{
             width: 32, height: 32,
             background: 'linear-gradient(135deg, #388BFD, #BC8CFF)',
             borderRadius: 8,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: 16,
-          }}>⬡</div>
+            color: 'white'
+          }}><Network size={18} /></div>
           <div>
             <div style={{ fontSize: 13, fontWeight: 700, letterSpacing: '0.05em', color: 'var(--text-primary)' }}>O2C GRAPH</div>
             <div style={{ fontSize: 10, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', letterSpacing: '0.1em' }}>SAP ORDER-TO-CASH</div>
@@ -65,18 +70,25 @@ export default function Sidebar({ stats, selectedNode, onClearSelection, activeF
         </div>
       </div>
 
-      <div style={{ flex: 1, overflowY: 'auto', padding: '16px' }}>
+      <div style={{ flex: 1, overflowY: 'auto', padding: '12px' }}>
 
         {/* Selected Node Details */}
-        {selectedNode ? (
-          <div className="fade-in">
+        <AnimatePresence mode="popLayout">
+        {selectedNode && (
+          <motion.div 
+            initial={{ opacity: 0, height: 0, scale: 0.95 }}
+            animate={{ opacity: 1, height: 'auto', scale: 1 }}
+            exit={{ opacity: 0, height: 0, scale: 0.95 }}
+            transition={{ duration: 0.2 }}
+            style={{ overflow: 'hidden' }}
+          >
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
               <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Node Details</span>
               <button
                 onClick={onClearSelection}
-                style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: 16, lineHeight: 1, padding: '0 4px' }}
+                style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '4px' }}
                 title="Clear selection"
-              >×</button>
+              ><X size={16} /></button>
             </div>
 
             <div style={{
@@ -117,13 +129,14 @@ export default function Sidebar({ stats, selectedNode, onClearSelection, activeF
               </div>
             </div>
             <hr className="divider" style={{ marginBottom: 16 }} />
-          </div>
-        ) : null}
+          </motion.div>
+        )}
+        </AnimatePresence>
 
         {/* Node Type Filter */}
         <div style={{ marginBottom: 20 }}>
-          <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10 }}>
-            Filter by Type
+          <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
+            <Filter size={12} /> Filter by Type
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
             {stats && Object.entries(stats.nodesByType).map(([type, count]) => {

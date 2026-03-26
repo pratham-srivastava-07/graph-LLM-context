@@ -42,10 +42,10 @@ export function guardrailFilter(req: Request, res: Response, next: NextFunction)
 
   // Check for blocked patterns first
   for (const pattern of BLOCKED_PATTERNS) {
-    if (pattern.test(query)) {
+    if (pattern.test(lowered)) {
       res.status(400).json({
-        error: 'This system is designed to answer SAP Order-to-Cash dataset queries only. Please ask about orders, deliveries, invoices, payments, customers, or products.',
-        code: 'OUT_OF_SCOPE'
+        error: "This system is designed to answer questions related to the provided dataset only.",
+        code: "GUARDRAIL_VIOLATION"
       });
       return;
     }
@@ -55,8 +55,8 @@ export function guardrailFilter(req: Request, res: Response, next: NextFunction)
   const hasKeyword = ALLOWED_KEYWORDS.some(kw => lowered.includes(kw));
   if (!hasKeyword) {
     res.status(400).json({
-      error: 'This system is designed to answer SAP Order-to-Cash dataset queries only. Please ask about orders, deliveries, invoices, payments, customers, or products.',
-      code: 'OUT_OF_SCOPE'
+      error: "This system is designed to answer questions related to the provided dataset only.",
+      code: "OUT_OF_SCOPE"
     });
     return;
   }

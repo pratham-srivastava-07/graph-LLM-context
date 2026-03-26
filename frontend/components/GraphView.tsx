@@ -73,8 +73,44 @@ export default function GraphView({ data, highlightedIds, selectedNode, filterTy
       }))
       .filter(e => e.source && e.target);
 
-    // Center transform
-    transformRef.current = { x: 0, y: 0, k: 1 };
+    // Center transform with initial zoom out
+    transformRef.current = { x: 0, y: 0, k: 0.8 }; // Start less zoomed out
+
+    // Auto-fit to show all nodes
+    const fitToView = () => {
+      if (nodesRef.current.length === 0) return;
+      
+      let minX = Infinity, maxX = -Infinity;
+      let minY = Infinity, maxY = -Infinity;
+      
+      nodesRef.current.forEach(n => {
+        minX = Math.min(minX, n.sx);
+        maxX = Math.max(maxX, n.sx);
+        minY = Math.min(minY, n.sy);
+        maxY = Math.max(maxY, n.sy);
+      });
+      
+      const nodeWidth = maxX - minX;
+      const nodeHeight = maxY - minY;
+      const padding = 20; // Tight padding for better initial scale
+      
+      const scaleX = (W - padding * 2) / nodeWidth;
+      const scaleY = (H - padding * 2) / nodeHeight;
+      const optimalZoom = Math.min(scaleX, scaleY, 1.25); // Max 125% zoom to fill space
+      
+      const centerX = (minX + maxX) / 2;
+      const centerY = (minY + maxY) / 2;
+      
+      transformRef.current = {
+        x: W / 2 - centerX * optimalZoom,
+        y: H / 2 - centerY * optimalZoom,
+        k: optimalZoom
+      };
+    };
+
+    // Call fit to view after a short delay to let nodes settle
+    const initialFit = setTimeout(fitToView, 250);
+    return () => clearTimeout(initialFit);
   }, [data, filterType]);
 
   // Force simulation + render loop
@@ -82,6 +118,23 @@ export default function GraphView({ data, highlightedIds, selectedNode, filterTy
     const canvas = canvasRef.current;
     const container = containerRef.current;
     if (!canvas || !container) return;
+
+    // Zoom isolation: Use native non-passive listener to reliably prevent browser zoom
+    const handleNativeWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      const zoomFactor = e.deltaY < 0 ? 1.15 : 0.85;
+      const newK = Math.max(0.1, Math.min(5, transformRef.current.k * zoomFactor));
+      
+      const rect = canvas.getBoundingClientRect();
+      const mx = e.clientX - rect.left;
+      const my = e.clientY - rect.top;
+      
+      transformRef.current.x = mx - (mx - transformRef.current.x) * (newK / transformRef.current.k);
+      transformRef.current.y = my - (my - transformRef.current.y) * (newK / transformRef.current.k);
+      transformRef.current.k = newK;
+    };
+
+    canvas.addEventListener('wheel', handleNativeWheel, { passive: false });
 
     const ctx = canvas.getContext('2d')!;
     let W = 0, H = 0;
@@ -247,6 +300,7 @@ export default function GraphView({ data, highlightedIds, selectedNode, filterTy
     animFrameRef.current = requestAnimationFrame(tick);
     return () => {
       cancelAnimationFrame(animFrameRef.current);
+      canvas.removeEventListener('wheel', handleNativeWheel);
       ro.disconnect();
     };
   }, [data, selectedNode, highlightedIds, hoveredNode, filterType]);
@@ -308,20 +362,19 @@ export default function GraphView({ data, highlightedIds, selectedNode, filterTy
     isDraggingRef.current = false;
   }, [getNodeAt, onNodeClick]);
 
+  // Removed React onWheel to use native non-passive listener for zoom isolation
   const handleWheel = useCallback((e: React.WheelEvent<HTMLCanvasElement>) => {
-    e.preventDefault();
-    const zoomFactor = e.deltaY < 0 ? 1.12 : 0.88;
-    const newK = Math.max(0.15, Math.min(4, transformRef.current.k * zoomFactor));
-    const rect = canvasRef.current!.getBoundingClientRect();
-    const mx = e.clientX - rect.left;
-    const my = e.clientY - rect.top;
-    transformRef.current.x = mx - (mx - transformRef.current.x) * (newK / transformRef.current.k);
-    transformRef.current.y = my - (my - transformRef.current.y) * (newK / transformRef.current.k);
-    transformRef.current.k = newK;
+    // Logic moved to native listener in useEffect
   }, []);
 
   return (
-    <div ref={containerRef} style={{ flex: 1, position: 'relative', overflow: 'hidden', background: 'var(--bg-base)' }}>
+    <div ref={containerRef} style={{ 
+      width: '100%', 
+      height: '100%', 
+      position: 'relative', 
+      overflow: 'hidden', 
+      background: 'var(--bg-base)',
+    }}>
       {/* Grid bg */}
       <div style={{
         position: 'absolute', inset: 0, pointerEvents: 'none',
@@ -336,19 +389,28 @@ export default function GraphView({ data, highlightedIds, selectedNode, filterTy
         onMouseUp={handleMouseUp}
         onWheel={handleWheel}
         onMouseLeave={() => setHoveredNode(null)}
-        style={{ display: 'block', width: '100%', height: '100%', cursor: 'grab' }}
+        style={{ 
+          display: 'block', 
+          width: '100%', 
+          height: '100%', 
+          cursor: 'grab',
+          position: 'absolute',
+          top: 0,
+          left: 0
+        }}
       />
-      {/* Controls hint */}
+      {/* Controls hint - positioned at absolute bottom */}
       <div style={{
-        position: 'absolute', bottom: 16, left: '50%', transform: 'translateX(-50%)',
+        position: 'absolute', bottom: 4, left: '50%', transform: 'translateX(-50%)',
         display: 'flex', gap: 12,
-        padding: '6px 14px',
+        padding: '3px 10px',
         background: 'var(--bg-elevated)',
         border: '1px solid var(--border)',
-        borderRadius: 20,
-        fontSize: 11, color: 'var(--text-muted)',
+        borderRadius: 12,
+        fontSize: 9, color: 'var(--text-muted)',
         fontFamily: 'var(--font-mono)',
         pointerEvents: 'none',
+        zIndex: 10,
       }}>
         <span>scroll: zoom</span>
         <span style={{ color: 'var(--border-bright)' }}>|</span>

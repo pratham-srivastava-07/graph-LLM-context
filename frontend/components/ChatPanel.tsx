@@ -1,8 +1,13 @@
 'use client';
 
 import React, { useState, useRef, useEffect, KeyboardEvent } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Send, Bot, Sparkles, AlertCircle, ArrowUpRight, MessageSquareCode } from 'lucide-react';
 import { QueryResult } from '../lib/types';
 import { sendQuery, fetchSuggestions } from '../lib/api';
+import { Button } from './ui/button';
+import { Input } from './ui/input';
+import { Badge } from './ui/badge';
 
 interface Message {
   id: string;
@@ -14,7 +19,81 @@ interface Message {
 
 interface ChatPanelProps {
   onQueryResult: (result: QueryResult) => void;
+  width?: number;
 }
+
+// // Statistics Panel Component
+// function StatisticsPanel() {
+//   const [stats, setStats] = useState({
+//     totalQueries: 0,
+//     avgResponseTime: 0,
+//     successRate: 100,
+//     topEntities: [] as string[]
+//   });
+
+//   useEffect(() => {
+//     // Load statistics from localStorage or set defaults
+//     const savedStats = localStorage.getItem('query-stats');
+//     if (savedStats) {
+//       setStats(JSON.parse(savedStats));
+//     }
+//   }, []);
+
+//   return (
+//     <div style={{
+//       padding: '16px',
+//       background: 'var(--bg-elevated)',
+//       border: '1px solid var(--border)',
+//       borderRadius: '8px',
+//       marginBottom: '16px'
+//     }}>
+//       <h4 style={{ 
+//         margin: '0 0 12px 0', 
+//         fontSize: '14px', 
+//         fontWeight: 600,
+//         color: 'var(--text-primary)',
+//         display: 'flex',
+//         alignItems: 'center',
+//         gap: '8px'
+//       }}>
+//         <MessageSquareCode size={16} />
+//         Query Statistics
+//       </h4>
+      
+//       <div style={{ display: 'grid', gap: '12px', fontSize: '12px' }}>
+//         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+//           <span style={{ color: 'var(--text-muted)' }}>Total Queries</span>
+//           <Badge variant="secondary">{stats.totalQueries}</Badge>
+//         </div>
+        
+//         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+//           <span style={{ color: 'var(--text-muted)' }}>Avg Response Time</span>
+//           <Badge variant="outline">{stats.avgResponseTime}ms</Badge>
+//         </div>
+        
+//         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+//           <span style={{ color: 'var(--text-muted)' }}>Success Rate</span>
+//           <Badge variant="default" style={{ background: 'var(--accent-green)', color: 'white' }}>
+//             {stats.successRate}%
+//           </Badge>
+//         </div>
+        
+//         {stats.topEntities.length > 0 && (
+//           <div>
+//             <div style={{ color: 'var(--text-muted)', marginBottom: '6px' }}>Most Queried</div>
+//             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+//               {stats.topEntities.map((entity, i) => (
+//                 <Badge key={i} variant="outline" style={{ fontSize: '10px' }}>
+//                   {entity}
+//                 </Badge>
+//               ))}
+//             </div>
+//           </div>
+//         )}
+//       </div>
+//     </div>
+//   );
+// }
 
 function ResultTable({ rows }: { rows: Record<string, unknown>[] }) {
   if (!rows.length) return <div style={{ color: 'var(--text-muted)', fontSize: 12, fontStyle: 'italic', padding: '8px 0' }}>No rows returned.</div>;
@@ -45,7 +124,7 @@ function ResultTable({ rows }: { rows: Record<string, unknown>[] }) {
                     {val === null || val === undefined ? (
                       <span style={{ color: 'var(--text-muted)' }}>—</span>
                     ) : isStatus ? (
-                      <span className={`badge badge-${String(val).replace(/\s+/g, '.')}`}>{String(val)}</span>
+                      <Badge variant="outline" className={`badge-${String(val).replace(/\s+/g, '.')}`}>{String(val)}</Badge>
                     ) : isNum ? (
                       <span style={{ color: 'var(--accent-green)' }}>{Number(val).toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
                     ) : isDate ? (
@@ -64,7 +143,7 @@ function ResultTable({ rows }: { rows: Record<string, unknown>[] }) {
   );
 }
 
-export default function ChatPanel({ onQueryResult }: ChatPanelProps) {
+export default function ChatPanel({ onQueryResult, width = 380 }: ChatPanelProps) {
   const [messages, setMessages] = useState<Message[]>([{
     id: 'welcome',
     role: 'assistant',
@@ -77,7 +156,7 @@ export default function ChatPanel({ onQueryResult }: ChatPanelProps) {
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [showSQL, setShowSQL] = useState<Record<string, boolean>>({});
   const bottomRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLTextAreaElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     fetchSuggestions().then(setSuggestions).catch(() => {});
@@ -119,7 +198,7 @@ export default function ChatPanel({ onQueryResult }: ChatPanelProps) {
     }
   };
 
-  const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
+  const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submit(input); }
   };
 
@@ -129,28 +208,40 @@ export default function ChatPanel({ onQueryResult }: ChatPanelProps) {
 
   return (
     <div style={{
-      width: 420,
+      width: width,
       background: 'var(--bg-surface)',
       borderLeft: '1px solid var(--border)',
       display: 'flex',
       flexDirection: 'column',
       overflow: 'hidden',
       flexShrink: 0,
+      margin: 0,
+      padding: 0
     }}>
       {/* Header */}
-      <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 10 }}>
-        <div style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--accent-green)', boxShadow: '0 0 8px var(--accent-green)' }} />
-        <span style={{ fontSize: 13, fontWeight: 600, letterSpacing: '0.04em' }}>Natural Language Query</span>
-        <span style={{ fontSize: 10, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', marginLeft: 'auto', letterSpacing: '0.06em' }}>
-          LLM → SQL → GRAPH
+      <div style={{ padding: '8px 12px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 8 }}>
+        <Sparkles size={16} className="text-accent-green" />
+        <span style={{ fontSize: 13, fontWeight: 600, letterSpacing: '0.04em' }}>Ask Context Graph</span>
+        <span style={{ fontSize: 10, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', marginLeft: 'auto', letterSpacing: '0.06em', display: 'flex', alignItems: 'center', gap: 4 }}>
+          <MessageSquareCode size={12} /> LLM → SQL
         </span>
       </div>
 
       {/* Messages */}
-      <div style={{ flex: 1, overflowY: 'auto', padding: '16px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+      <div style={{ flex: 1, overflowY: 'auto', padding: '8px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {/* Statistics Panel */}
+        {/* <StatisticsPanel /> */}
+        
+        <AnimatePresence>
         {messages.map(msg => (
-          <div key={msg.id} className="fade-in" style={{ display: 'flex', flexDirection: 'column', gap: 4,
-            alignItems: msg.role === 'user' ? 'flex-end' : 'flex-start' }}>
+          <motion.div 
+            key={msg.id} 
+            initial={{ opacity: 0, y: 15 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3, ease: 'easeOut' }}
+            style={{ display: 'flex', flexDirection: 'column', gap: 4,
+            alignItems: msg.role === 'user' ? 'flex-end' : 'flex-start' }}
+          >
             <div style={{
               maxWidth: '90%',
               padding: '10px 14px',
@@ -166,8 +257,8 @@ export default function ChatPanel({ onQueryResult }: ChatPanelProps) {
               lineHeight: 1.5,
             }}>
               {msg.role !== 'user' && (
-                <div style={{ fontSize: 10, color: 'var(--text-muted)', marginBottom: 4, fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-                  {msg.role === 'error' ? '⚠ Error' : '◆ Assistant'}
+                <div style={{ fontSize: 10, color: 'var(--text-muted)', marginBottom: 4, fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '0.08em', display: 'flex', alignItems: 'center', gap: 4 }}>
+                  {msg.role === 'error' ? <><AlertCircle size={10}/> Error</> : <><Bot size={10}/> Assistant</>}
                 </div>
               )}
               {msg.text}
@@ -218,11 +309,16 @@ export default function ChatPanel({ onQueryResult }: ChatPanelProps) {
                 )}
               </div>
             )}
-          </div>
+          </motion.div>
         ))}
+        </AnimatePresence>
 
         {loading && (
-          <div className="fade-in" style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: '2px 12px 12px 12px', maxWidth: '80%' }}>
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: '2px 12px 12px 12px', maxWidth: '80%' }}
+          >
             <div style={{ display: 'flex', gap: 4 }}>
               {[0, 1, 2].map(i => (
                 <div key={i} style={{
@@ -232,7 +328,7 @@ export default function ChatPanel({ onQueryResult }: ChatPanelProps) {
               ))}
             </div>
             <span style={{ fontSize: 12, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>Translating query...</span>
-          </div>
+          </motion.div>
         )}
         <div ref={bottomRef} />
       </div>
@@ -252,7 +348,7 @@ export default function ChatPanel({ onQueryResult }: ChatPanelProps) {
               key={i}
               onClick={() => { setInput(s); setShowSuggestions(false); inputRef.current?.focus(); }}
               style={{
-                display: 'block', width: '100%', textAlign: 'left',
+                display: 'flex', alignItems: 'center', gap: 8, width: '100%', textAlign: 'left',
                 padding: '7px 16px', background: 'none', border: 'none',
                 cursor: 'pointer', fontSize: 12, color: 'var(--text-secondary)',
                 borderBottom: '1px solid var(--border)',
@@ -261,16 +357,16 @@ export default function ChatPanel({ onQueryResult }: ChatPanelProps) {
               onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-hover)')}
               onMouseLeave={e => (e.currentTarget.style.background = 'none')}
             >
-              ↗ {s}
+              <ArrowUpRight size={12} className="text-muted-foreground" /> {s}
             </button>
           ))}
         </div>
       )}
 
       {/* Input */}
-      <div style={{ padding: '12px 16px', borderTop: '1px solid var(--border)' }}>
+      <div style={{ padding: '8px 12px', borderTop: '1px solid var(--border)' }}>
         <div style={{ position: 'relative', display: 'flex', gap: 8, alignItems: 'flex-end' }}>
-          <textarea
+          <Input
             ref={inputRef}
             value={input}
             onChange={e => { setInput(e.target.value); setShowSuggestions(true); }}
@@ -278,42 +374,23 @@ export default function ChatPanel({ onQueryResult }: ChatPanelProps) {
             onFocus={() => setShowSuggestions(true)}
             onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
             placeholder="Ask about orders, deliveries, invoices..."
-            rows={2}
+            suppressHydrationWarning
+            className="flex-1 bg-[#161B22]/80 border-[#30363D] text-[#E6EDF3] focus-visible:ring-1 focus-visible:ring-[#388BFD] focus-visible:border-[#388BFD] h-[48px] rounded-xl px-4 shadow-inner"
             style={{
-              flex: 1,
-              background: 'var(--bg-elevated)',
-              border: '1px solid var(--border-bright)',
-              borderRadius: 8,
-              padding: '10px 12px',
-              color: 'var(--text-primary)',
-              fontSize: 13,
               fontFamily: 'var(--font-display)',
-              resize: 'none',
-              outline: 'none',
-              lineHeight: 1.5,
-              transition: 'border-color 0.15s',
+              fontSize: 14,
             }}
-            onFocusCapture={e => (e.target.style.borderColor = 'var(--accent-blue)')}
-            onBlurCapture={e => (e.target.style.borderColor = 'var(--border-bright)')}
           />
-          <button
+          <Button
+            size="icon"
             onClick={() => submit(input)}
             disabled={!input.trim() || loading}
-            style={{
-              padding: '10px 16px',
-              background: input.trim() && !loading ? 'var(--accent-blue)' : 'var(--bg-elevated)',
-              border: '1px solid var(--border-bright)',
-              borderRadius: 8,
-              color: input.trim() && !loading ? '#fff' : 'var(--text-muted)',
-              cursor: input.trim() && !loading ? 'pointer' : 'not-allowed',
-              fontSize: 16,
-              transition: 'all 0.15s',
-              flexShrink: 0,
-              lineHeight: 1,
-              height: 42,
-            }}
+            className={`rounded-xl h-[48px] w-[48px] cursor-pointer shrink-0 transition-all duration-300 ${input.trim() && !loading ? 'bg-[#388BFD] hover:bg-[#388BFD]/90 text-white shadow-[0_0_15px_rgba(56,139,253,0.4)] scale-100' : 'bg-[#1C2128] text-[#484F58] scale-95 border border-[#30363D]'}`}
+            variant={input.trim() && !loading ? 'default' : 'secondary'}
             title="Send query (Enter)"
-          >↑</button>
+          >
+            <Send size={18} strokeWidth={input.trim() && !loading ? 2.5 : 2} />
+          </Button>
         </div>
         <div style={{ marginTop: 6, fontSize: 10, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
           Enter to send · Shift+Enter for newline · Dataset queries only
