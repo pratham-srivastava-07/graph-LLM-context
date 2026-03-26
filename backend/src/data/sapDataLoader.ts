@@ -117,7 +117,31 @@ interface SAPPayment {
   clearingDate: string;
 }
 
-const DATA_DIR = path.join(__dirname, '../../sap-o2c-data');
+// Robust root directory resolution
+const BACKEND_ROOT = path.join(__dirname, '..', '..');
+const DATA_DIR = path.join(BACKEND_ROOT, 'sap-o2c-data');
+
+/**
+ * Helper to find the first .jsonl file in a directory
+ * This avoids brittle hardcoded filenames with timestamps
+ */
+function findJsonlFile(directory: string): string | null {
+  const fullDirPath = path.join(DATA_DIR, directory);
+  if (!fs.existsSync(fullDirPath)) {
+    console.warn(`Directory not found: ${fullDirPath}`);
+    return null;
+  }
+  
+  const files = fs.readdirSync(fullDirPath);
+  const jsonlFile = files.find(f => f.endsWith('.jsonl'));
+  
+  if (!jsonlFile) {
+    console.warn(`No .jsonl file found in: ${fullDirPath}`);
+    return null;
+  }
+  
+  return path.join(fullDirPath, jsonlFile);
+}
 
 function readJsonlFile<T>(filePath: string): T[] {
   if (!fs.existsSync(filePath)) {
@@ -145,46 +169,37 @@ export function loadSAPData() {
   console.log('📊 Loading SAP O2C dataset...');
   
   // Load Business Partners (Customers)
-  const businessPartners = readJsonlFile<SAPBusinessPartner>(
-    path.join(DATA_DIR, 'business_partners/part-20251119-133435-168.jsonl')
-  );
+  const bpFile = findJsonlFile('business_partners');
+  const businessPartners = bpFile ? readJsonlFile<SAPBusinessPartner>(bpFile) : [];
   
   // Load Sales Orders
-  const salesOrderHeaders = readJsonlFile<SAPSalesOrderHeader>(
-    path.join(DATA_DIR, 'sales_order_headers/part-20251119-133429-440.jsonl')
-  );
+  const soHeaderFile = findJsonlFile('sales_order_headers');
+  const salesOrderHeaders = soHeaderFile ? readJsonlFile<SAPSalesOrderHeader>(soHeaderFile) : [];
   
-  const salesOrderItems = readJsonlFile<SAPSalesOrderItem>(
-    path.join(DATA_DIR, 'sales_order_items/part-20251119-133429-452.jsonl')
-  );
+  const soItemFile = findJsonlFile('sales_order_items');
+  const salesOrderItems = soItemFile ? readJsonlFile<SAPSalesOrderItem>(soItemFile) : [];
   
   // Load Products
-  const products = readJsonlFile<SAPProduct>(
-    path.join(DATA_DIR, 'products/part-20251119-133438-390.jsonl')
-  );
+  const productFile = findJsonlFile('products');
+  const products = productFile ? readJsonlFile<SAPProduct>(productFile) : [];
   
   // Load Billing Documents (Invoices)
-  const billingHeaders = readJsonlFile<SAPBillingDocumentHeader>(
-    path.join(DATA_DIR, 'billing_document_headers/part-20251119-133433-228.jsonl')
-  );
+  const billingHeaderFile = findJsonlFile('billing_document_headers');
+  const billingHeaders = billingHeaderFile ? readJsonlFile<SAPBillingDocumentHeader>(billingHeaderFile) : [];
   
-  const billingItems = readJsonlFile<SAPBillingDocumentItem>(
-    path.join(DATA_DIR, 'billing_document_items/part-20251119-133432-233.jsonl')
-  );
+  const billingItemFile = findJsonlFile('billing_document_items');
+  const billingItems = billingItemFile ? readJsonlFile<SAPBillingDocumentItem>(billingItemFile) : [];
   
   // Load Deliveries
-  const deliveryHeaders = readJsonlFile<SAPOutboundDeliveryHeader>(
-    path.join(DATA_DIR, 'outbound_delivery_headers/part-20251119-133431-414.jsonl')
-  );
+  const deliveryHeaderFile = findJsonlFile('outbound_delivery_headers');
+  const deliveryHeaders = deliveryHeaderFile ? readJsonlFile<SAPOutboundDeliveryHeader>(deliveryHeaderFile) : [];
   
-  const deliveryItems = readJsonlFile<SAPOutboundDeliveryItem>(
-    path.join(DATA_DIR, 'outbound_delivery_items/part-20251119-133431-439.jsonl')
-  );
+  const deliveryItemFile = findJsonlFile('outbound_delivery_items');
+  const deliveryItems = deliveryItemFile ? readJsonlFile<SAPOutboundDeliveryItem>(deliveryItemFile) : [];
   
   // Load Payments
-  const payments = readJsonlFile<SAPPayment>(
-    path.join(DATA_DIR, 'payments_accounts_receivable/part-20251119-133434-100.jsonl')
-  );
+  const paymentFile = findJsonlFile('payments_accounts_receivable');
+  const payments = paymentFile ? readJsonlFile<SAPPayment>(paymentFile) : [];
   
   // Transform to our schema
   const customers: Customer[] = businessPartners.map((bp, index) => ({

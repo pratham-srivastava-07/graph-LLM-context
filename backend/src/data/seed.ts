@@ -3,7 +3,9 @@ import { loadSAPData } from './sapDataLoader';
 import fs from 'fs';
 import path from 'path';
 
-const DATA_DIR = path.join(__dirname, '../../data');
+// Robust root directory resolution
+const BACKEND_ROOT = path.join(__dirname, '..', '..');
+const DATA_DIR = path.join(BACKEND_ROOT, 'data');
 
 function seed(): void {
   if (!fs.existsSync(DATA_DIR)) {
