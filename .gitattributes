@@ -1,0 +1,6 @@
+# Mark everything as vendored (ignored by GitHub language statistics) by default
+* linguist-vendored
+
+# Un-vendor TypeScript files so they are the ONLY ones counted in the language stats
+*.ts linguist-vendored=false
+*.tsx linguist-vendored=false
